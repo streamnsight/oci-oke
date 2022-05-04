@@ -1,0 +1,753 @@
+title: Title
+description: Title
+schemaVersion: 1.1.0
+
+variableGroups:
+  - title: Cluster Networking
+    variables:
+      - use_existing_vcn
+      - vcn_compartment_id
+      - vcn_cidr
+      - vcn_id
+      - add_vcn_tag
+      - vcn_tags
+  
+  - title: Cluster API Endpoint
+    variables:
+      - is_endpoint_public
+      - kubernetes_endpoint_subnet
+
+  - title: Cluster Definition
+    variables:
+      - cluster_name
+      - cluster_compartment_id
+      - kubernetes_version
+      - pods_cidr
+      - services_cidr
+      - cluster_options_add_ons_is_kubernetes_dashboard_enabled
+      - cluster_options_add_ons_is_tiller_enabled
+      - node_pool_count
+      - ssh_public_key
+      - add_cluster_tag
+      - cluster_tags
+
+  - title: Node Pool 1
+    visible:
+      and:
+        - le: 
+          - node_pool_count
+          - 3
+        - ge:
+          - node_pool_count
+          - 1
+    variables:
+      - np1_subnet
+      - np1_ha
+      - np1_availability_domain
+      - np1_node_count
+      - np1_node_shape
+      - np1_image_id
+      - np1_boot_volume_size_in_gbs
+      - np1_ocpus
+      - np1_memory_gb
+      - np1_add_tag
+      - np1_tags
+
+  - title: Node Pool 2
+    visible:
+      and:
+        - le: 
+          - node_pool_count
+          - 3
+        - ge:
+          - node_pool_count
+          - 2
+    variables: 
+      - np2_subnet
+      - np2_ha
+      - np2_availability_domain
+      - np2_create_new_subnet
+      - np2_node_count
+      - np2_node_shape
+      - np2_image_id
+      - np2_boot_volume_size_in_gbs
+      - np2_ocpus
+      - np2_memory_gb
+      - np2_add_tag
+      - np2_tags
+
+  - title: Node Pool 3
+    visible:
+      eq: 
+        - node_pool_count
+        - 3
+    variables: 
+      - np3_subnet      
+      - np3_ha
+      - np3_availability_domain
+      - np3_create_new_subnet
+      - np3_node_count
+      - np3_node_shape
+      - np3_image_id
+      - np3_boot_volume_size_in_gbs
+      - np3_ocpus
+      - np3_memory_gb
+      - np3_add_tag
+      - np3_tags
+
+  - title: Services Load Balancing
+    variables:
+      - allow_deploy_private_lb
+      - private_lb_subnet
+      - allow_deploy_public_lb
+      - public_lb_subnet
+    visible: ${use_existing_vcn}
+
+  - title: Services Load Balancing
+    variables:
+      - allow_deploy_private_lb
+      - allow_deploy_public_lb
+    visible:
+      not:
+        - ${use_existing_vcn}
+
+  - title: "Security: Secrets Encryption"
+    variables:
+      - enable_secret_encryption
+      - secrets_key_vault_compartment_id
+      - secrets_key_vault_id
+      - secrets_key_id
+
+  - title: "Security: Image Signature Validation"
+    variables:
+      - enable_image_validation
+      - image_validation_key_vault_compartment_id
+      - image_validation_key_vault_id
+      - image_validation_key_id
+
+  - title: "Security: Pod Admission Controllers"
+    variables:
+      - enable_pod_admission_controller
+
+
+variables:
+
+  use_existing_vcn:
+    type: boolean
+    default: false
+    title: Use an existing VCN
+    description: Check this option if you wish to deploy the cluster in an existing VCN.
+    required: true
+
+  vcn_compartment_id:
+    type: oci:identity:compartment:id
+    title: Compartment to use for the VCN
+    description: Compartment of the VCN for the Kubernetes cluster.
+    visible: true
+    required: ${use_existing_vcn}
+    default: compartment_ocid
+
+  vcn_id:
+    type: oci:core:vcn:id
+    title: VCN for the Kubernetes cluster
+    dependsOn:
+      compartmentId: vcn_compartment_id
+    required: ${use_existing_vcn}
+    visible: ${use_existing_vcn}
+    
+  vcn_cidr:
+    type: string
+    default: "10.0.0.0/16"
+    title: CIDR block for the VCN
+    required: 
+      not: 
+        - ${use_existing_vcn}
+    visible: 
+      not: 
+        - ${use_existing_vcn}
+
+  kubernetes_endpoint_subnet:
+    type: oci:core:subnet:id
+    title: Subnet for the Kubernetes Endpoint
+    description: Select a subnet for the Kubernetes endpoint. Choosing a public subnet will expose the endpoint to the internet.
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    required: ${use_existing_vcn}
+    visible: ${use_existing_vcn}
+
+  allow_deploy_public_lb:
+    type: boolean
+    default: false
+    title: Use Public Load Balancers for Services
+    description: |
+      Provision a public subnet for public load balancers, for services that need to be exposed to the internet.
+    required:
+      not:
+        - ${use_existing_vcn}
+
+  public_lb_subnet:
+    type: oci:core:subnet:id
+    title: Subnet for Public Load Balancers
+    description: |
+      Select a public subnet for load balancers that will expose services to the internet. 
+      Note: if you set up more than one load balancer, the subnet must be AD specific.
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    required: 
+      and:
+        - ${use_existing_vcn}
+        - allow_deploy_public_lb
+    visible: 
+      and:
+        - ${use_existing_vcn}
+        - allow_deploy_public_lb
+
+  allow_deploy_private_lb:
+    type: boolean
+    default: false
+    title: Use Private Load Balancers for Services
+    description: Provision a private subnet for private load balancers, for services that need to be internal only.
+    required:
+      not:
+        - ${use_existing_vcn}
+   
+  private_lb_subnet:
+    type: oci:core:subnet:id
+    title: Subnet for Private Load Balancers
+    description: Select a private subnet for load balancers for internal services. Leave empty if you do not have internal services to load balance.
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    required:
+      and:
+        - ${use_existing_vcn}
+        - allow_deploy_private_lb
+    visible: 
+      and:
+        - ${use_existing_vcn}
+        - allow_deploy_private_lb
+
+  is_endpoint_public:
+    type: boolean
+    default: false
+    title: Expose the Kubernetes Endpoint to the Internet.
+    description: Select this option to make the Kubernetes Endpoint public. If left unchecked, a bastion host will be needed to access the cluster.
+    required:
+      not:
+        - ${use_existing_vcn}
+    visible:
+      not:
+        - ${use_existing_vcn}
+
+  cluster_name:
+    type: string
+    title: Cluster Name
+    visible: true
+    default: "OKE Cluster"
+
+  cluster_compartment_id:
+    type: oci:identity:compartment:id
+    title: Compartment for the Cluster Deployment
+    description: Compartment where the Kubernetes cluster will be deployed.
+    visible: true
+    default: compartment_ocid
+
+  kubernetes_version:
+    type: string #oci:kubernetes:versions:id
+    title: Kubernetes Version
+    default: "v1.22.5"
+    description: The Kubernetes version for the cluster.
+    required: true
+    # dependsOn:
+      # compartmentId: cluster_compartment_id
+      # clusterOptionId: "all"
+
+  cluster_options_add_ons_is_kubernetes_dashboard_enabled:
+    type: boolean
+    title: Enable Kubernetes Dashboard
+    description: Enable the Kubernetes Dashboard 
+    default: true
+    visible: true
+
+
+  cluster_options_add_ons_is_tiller_enabled:
+    type: boolean
+    title: Enable Tiller / Helm
+    default: true
+    visible: true
+
+  pods_cidr:
+    type: string
+    title: Pods CIDR block
+    description: CIDR range for Kubernetes Pods
+    default: "10.1.0.0/16"
+    required: true
+    # pattern: 
+
+  services_cidr:
+    type: string
+    title: Services CIDR block
+    description: CIDR range for Kubernetes Services
+    default: "10.2.0.0/16"
+    required: true
+    # pattern: 
+
+  node_pool_count:
+    type: integer
+    minimum: 0
+    maximum: 3
+    default: 1
+    title: Number of Node Pools
+    description: | 
+      Select a number of node pools to create for the cluster. 
+      Note this is different from the number of nodes, which are defined for each pool. 
+      Multiple node pools let you use nodes of different shapes and architectures (x86-64, ARM, GPU, DenseIO shapes etc.)
+    required: true
+
+
+  np1_subnet:
+    type: oci:core:subnet:id
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    title: Subnet for this Node Pool
+    description: Choose a subnet for this node pool. Choosing a public subnet will expose nodes in this pool to the internet.
+    visible: use_existing_vcn
+    required: 
+      and: 
+        - use_existing_vcn
+        - ge:
+          - node_pool_count
+          - 1
+
+  np1_ha:
+    type: boolean
+    title: Place Nodes Across Availability Domains
+    description: |
+      When set, attempt to place nodes across availability domains where the shape is available.
+      If not set, choose an availability domain where nodes should be provisioned. 
+    default: true
+
+  np1_availability_domain:
+    type: oci:identity:availabilitydomain:name
+    dependsOn:
+      compartmentId: tenancy_ocid
+    title: Availability Domain
+    description: Choose an availability domain to place the nodes of this pool.
+    visible: 
+      not:
+        - np1_ha
+    required:
+      and: 
+        - use_existing_vcn
+        - ge:
+          - node_pool_count
+          - 1
+        - not:
+          - np1_ha
+
+  np1_node_count:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 3
+    title: Nb Nodes
+    description: Number of nodes in the pool
+    required:
+      ge:
+        - node_pool_count
+        - 1
+
+  np1_image_id:
+    type: oci:core:image:id
+    title: Image Id
+    description: Image OCID
+    dependsOn:
+      compartmentId: cluster_compartment_id
+      shape: np1_node_shape
+      operatingSystem: "Oracle Linux"
+    required:
+      ge:
+        - node_pool_count
+        - 1
+
+  np1_boot_volume_size_in_gbs:
+    type: integer
+    title: Boot Volume Size (Gb)
+    description: Boot volume size
+    default: 50
+    minimum: 50
+    maximum: 500
+    required:
+      ge:
+        - node_pool_count
+        - 1
+
+  np1_node_shape:
+    type: oci:core:instanceshape:name
+    title: Instance Shape
+    description: Choose a shape for this node pool
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required:
+      ge:
+        - node_pool_count
+        - 1
+
+  np2_subnet:
+    type: oci:core:subnet:id
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    title: Subnet for this Node Pool
+    description: Choose a subnet for this node pool. Choosing a public subnet will expose nodes in this pool to the internet.
+    visible: use_existing_vcn
+
+  np2_ha:
+    type: boolean
+    title: Place Nodes Across Availability Domains
+    description: |
+      When set, attempt to place nodes across availability domains where the shape is available.
+      If not set, choose an availability domain where nodes should be provisioned. 
+    default: true
+
+  np2_availability_domain:
+    type: oci:identity:availabilitydomain:name
+    dependsOn:
+      compartmentId: tenancy_ocid
+    title: Availability Domain
+    description: Choose an availability domain to place the nodes of this pool.
+    visible: 
+      not:
+        - np2_ha
+    required:
+      and: 
+        - use_existing_vcn
+        - ge:
+          - node_pool_count
+          - 2
+        - not:
+          - np2_ha
+
+  np2_create_new_subnet:
+    type: boolean
+    title: Create New Subnet
+    description: Create a distinct subnet for this node pool. Leave unchecked to place all nodes into the same subnet.
+    default: 
+      and:
+        - ge:
+          - node_pool_count
+          - 2
+        - not:
+          - use_existing_vcn
+
+    visible: 
+      not:
+        - use_existing_vcn
+
+  np2_node_count:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 0
+    title: Nb Nodes
+    description: Number of nodes in the pool. Leave the number to 0 to provision a node pool without provisioning nodes.
+    required:
+      ge:
+        - node_pool_count
+        - 2
+
+  np2_image_id:
+    type: oci:core:image:id
+    title: Image Id
+    description: Image OCID
+    dependsOn:
+      compartmentId: cluster_compartment_id
+      shape: np2_node_shape
+      operatingSystem: "Oracle Linux"
+    required:
+      ge:
+        - node_pool_count
+        - 2
+
+  np2_boot_volume_size_in_gbs:
+    type: integer
+    title: Boot Volume Size (Gb)
+    description: Boot volume size
+    default: 50
+    minimum: 50
+    maximum: 500
+    required:
+      ge:
+        - node_pool_count
+        - 2
+
+  np2_node_shape:
+    type: oci:core:instanceshape:name
+    title: Instance Shape
+    description: Choose a shape for this node pool
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required:
+      ge:
+        - node_pool_count
+        - 2
+
+  np3_subnet:
+    type: oci:core:subnet:id
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    title: Subnet for this Node Pool
+    description: Choose a subnet for this node pool. Choosing a public subnet will expose nodes in this pool to the internet.
+    visible: ${use_existing_vcn}
+
+  np3_ha:
+    type: boolean
+    title: Place Nodes Across Availability Domains
+    description: |
+      When set, attempt to place nodes across availability domains where the shape is available.
+      If not set, choose an availability domain where nodes should be provisioned. 
+    default: true
+
+  np3_availability_domain:
+    type: oci:identity:availabilitydomain:name
+    dependsOn:
+      compartmentId: tenancy_ocid
+    title: Availability Domain
+    description: Choose an availability domain to place the nodes of this pool.
+    visible: 
+      not: 
+        - np2_ha
+
+  np3_create_new_subnet:
+    type: boolean
+    title: Create New Subnet
+    description: Create a distinct subnet for this node pool. Leave unchecked to place all nodes into the same subnet.
+    default: true
+    visible: 
+      not:
+        - ${use_existing_vcn}
+
+  np3_node_count:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 0
+    title: Nb Nodes
+    description: Number of nodes in the pool. Leave the number to 0 to provision a node pool without provisioning nodes.
+    required:
+      eq: 
+        - node_pool_count
+        - 3
+
+  np3_image_id:
+    type: oci:core:image:id
+    title: Image Id
+    description: Image OCID
+    dependsOn:
+      compartmentId: cluster_compartment_id
+      shape: np3_node_shape
+      operatingSystem: "Oracle Linux"
+    required:
+      eq: 
+        - node_pool_count
+        - 3
+
+  np3_boot_volume_size_in_gbs:
+    type: integer
+    title: Boot Volume Size (Gb)
+    description: Boot volume size
+    default: 50
+    minimum: 50
+    maximum: 500
+    required:
+      ge:
+        - node_pool_count
+        - 3
+
+  np3_node_shape:
+    type: oci:core:instanceshape:name
+    title: Instance Shape
+    description: Choose a shape for this node pool
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required:
+      eq: 
+        - node_pool_count
+        - 3
+
+  enable_secret_encryption:
+    type: boolean
+    default: false
+    title: Enable Kubernetes Secrets encryption
+    description: |
+      Enable the at-rest encryption of Kubernetes Secrets. 
+      Note this requires tenancy administrator permissions to create a Dynamic Group for the cluster. 
+      !!! This property cannot be changed without destroying and re-creating the cluster.
+  
+  secrets_key_vault_compartment_id:
+    type: oci:identity:compartment:id
+    title: Vault Compartment
+    description: Compartment of the vault storing the key for secrets encryption
+    default: cluster_compartment_id
+    visible: enable_secret_encryption
+
+
+  secrets_key_vault_id:
+    type: oci:kms:vault:id
+    title: Vault
+    description: Vault storing the key for Kubernetes Secrets encryption at rest. 
+    dependsOn:
+      compartmentId: secrets_key_vault_compartment_id
+    visible: enable_secret_encryption
+
+  secrets_key_id:
+    type: oci:kms:key:id
+    title: Kubernetes Secrets Encryption Key
+    description: |
+      Key used for Kubernetes Secrets encryption at rest.
+      This key must be an AES or RSA key.
+    visible: enable_secret_encryption
+    dependsOn:
+      compartmentId: secrets_key_vault_compartment_id
+      vaultId: secrets_key_vault_id
+
+  enable_image_validation:
+    type: boolean
+    default: false
+    title: Enable Container Image Signature Validation
+    description: |
+      Enable image signature validation in the Kubernetes cluster, requiring all images to be signed to be deployed. 
+      Note this requires tenancy administrator permissions to create a Dynamic Group for the cluster.
+      This option can be updated later.
+  
+  image_validation_key_vault_compartment_id:
+    type: oci:identity:compartment:id
+    title: Vault Compartment
+    default: cluster_compartment_id
+    description: Compartment of the vault storing the key for image signature validation.
+    visible: enable_image_validation
+
+  image_validation_key_vault_id:
+    type: oci:kms:vault:id
+    title: Vault
+    description: |
+      Vault storing the key for container image signature validation.
+      This key must be an asymetric key (RSA or ECDSA).
+    dependsOn:
+      compartmentId: image_validation_key_vault_compartment_id
+    visible: enable_image_validation
+
+  image_validation_key_id:
+    type: oci:kms:key:id
+    title: Kubernetes Secrets Encryption Key
+    description: Key for container image signature validation.
+    visible: enable_image_validation
+    dependsOn:
+      compartmentId: image_validation_key_vault_compartment_id
+      vaultId: image_validation_key_vault_id
+
+  enable_pod_admission_controller:
+    type: boolean
+    default: false
+    title: Enable Pod Admission Controllers
+    description: Enable Pod admission controllers in the Kubernetes cluster, requiring all pods to comply with established security policies. Note this will prevent any pod deployment until policies are defined.
+
+  add_vcn_tag:
+    type: boolean
+    title: Add Tags to VCN
+    default: false
+    visible: 
+      not:
+        - use_existing_vcn
+
+  vcn_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Tagging
+    description: Tag value for resource created
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: 
+      and:
+        - add_vcn_tag
+        - not:
+          - use_existing_vcn
+
+  add_cluster_tag:
+    type: boolean
+    title: Add Tags to Cluster
+    default: false
+
+  cluster_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Cluster Tags
+    description: Tag value for resource created
+    default: vcn_tag
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: add_cluster_tag
+
+  np1_add_tag:
+    type: boolean
+    title: Add Tags to Node Pool 1
+    default: false
+
+  np1_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Node Pool Tags
+    description: Tag value for resource created
+    default: cluster_tag
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: np1_add_tag
+
+  np2_add_tag:
+    type: boolean
+    title: Add Tags to Node Pool 2
+    default: false
+
+  np2_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Node Pool Tags
+    description: Tag value for resource created
+    default: cluster_tag
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: np2_add_tag
+
+  np3_add_tag:
+    type: boolean
+    title: Add Tags to Node Pool 3
+    default: false
+
+  np3_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Node Pool Tags
+    description: Tag value for resource created
+    default: cluster_tag
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: np3_add_tag
+
+  ssh_public_key:
+    type: oci:core:ssh:publickey
+    title: SSH Public Key
+    description: Public key to use to SSH to work nodes
+
+  region:
+    type: string
+    title: Region
+    visible: false
+
+  tenancy_ocid: 
+    type: string
+    title: Tenancy ID
+    visible: false

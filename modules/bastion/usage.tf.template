@@ -1,0 +1,8 @@
+module "my_bastion" {
+    source = "github.com/streaminsight/oci-oke.git//modules/bastion
+    compartment_id = var.compartment_id
+    bastion_subnet_id = 
+    bastion_client_cidr_block_allow_list = []
+    bastion_name = "My Bastion"
+    #bastion_max_session_ttl_in_seconds = 
+}
