@@ -1,27 +1,5 @@
-# Cluster dynamic group policy needed for nodes to access the encryption key if it was defined
-resource "oci_identity_policy" "oke_key_access_policy" {
-  count = (var.enable_secret_encryption && var.secrets_key_id != null) || (var.enable_image_validation && var.image_validation_key_id != null) ? 1 : 0
-  #Required
-  compartment_id = var.tenancy_ocid
-  description    = "OKE key access policy"
-  name           = "oke_key_access"
-  statements = compact([
-    var.enable_secret_encryption && var.secrets_key_id != null ? "Allow any-user to use keys in tenancy where ALL {request.principal.type = 'cluster', target.key.id='${var.secrets_key_id}'}" : "",
-    var.enable_image_validation && var.image_validation_key_id != null ? "Allow any-user to use keys in tenancy where ALL {request.principal.type = 'cluster', target.key.id='${var.image_validation_key_id}'}" : ""
-  ])
-}
-
-# Cluster dynamic group policy needed for nodes to access the encryption key if it was defined
-resource "oci_identity_policy" "cluster_key_access_policy" {
-  count = (var.enable_secret_encryption && var.secrets_key_id != null) || (var.enable_image_validation && var.image_validation_key_id != null) ? 1 : 0
-  #Required
-  compartment_id = var.tenancy_ocid
-  description    = "OKE Cluster ${oci_containerengine_cluster.oci_oke_cluster.id} Key access policies"
-  name           = "${oci_containerengine_cluster.oci_oke_cluster.id}_key_access"
-  statements = compact([
-    var.enable_secret_encryption && var.secrets_key_id != null ? "Allow any-user to use keys in tenancy where ALL {request.principal.type = 'cluster', request.principal.id = '${oci_containerengine_cluster.oci_oke_cluster.id}', target.key.id = '${var.secrets_key_id}'}" : null,
-    var.enable_image_validation && var.image_validation_key_id != null ? "Allow any-user to use keys in tenancy where ALL {request.principal.type = 'cluster', request.principal.id = '${oci_containerengine_cluster.oci_oke_cluster.id}', target.key.id = '${var.image_validation_key_id}'}" : null
-  ])
+locals {
+  kubernetes_version = var.kubernetes_version != "" ? var.kubernetes_version : reverse(data.oci_containerengine_cluster_option.cluster_options.kubernetes_versions)[0]
 }
 
 resource "oci_containerengine_cluster" "oci_oke_cluster" {
@@ -29,8 +7,8 @@ resource "oci_containerengine_cluster" "oci_oke_cluster" {
 
   compartment_id = var.cluster_compartment_id
   # default to latest version if kubernetes_version is null
-  kubernetes_version = var.kubernetes_version != "" ? var.kubernetes_version : reverse(data.oci_containerengine_cluster_option.cluster_options.kubernetes_versions)[0]
-  name               = var.cluster_name
+  kubernetes_version = local.kubernetes_version
+  name               = "${var.cluster_name}-${random_string.deploy_id.result}"
   vcn_id             = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
 
   endpoint_config {
@@ -51,7 +29,8 @@ resource "oci_containerengine_cluster" "oci_oke_cluster" {
   kms_key_id = var.enable_secret_encryption ? var.secrets_key_id : null
 
   options {
-    service_lb_subnet_ids = var.use_existing_vcn ? [for k, v in zipmap([var.public_lb_subnet, var.private_lb_subnet], [var.allow_deploy_public_lb, var.allow_deploy_private_lb]) : k if v] : [for k, v in zipmap([oci_core_subnet.oke_public_lb_subnet[0].id, oci_core_subnet.oke_private_lb_subnet[0].id], [var.allow_deploy_public_lb, var.allow_deploy_private_lb]) : k if v]
+    # service_lb_subnet_ids = var.use_existing_vcn ? [for k, v in zipmap([var.public_lb_subnet, var.private_lb_subnet], [var.allow_deploy_public_lb, var.allow_deploy_private_lb]) : k if v] : [for k, v in zipmap([oci_core_subnet.oke_public_lb_subnet[0].id, oci_core_subnet.oke_private_lb_subnet[0].id], [var.allow_deploy_public_lb, var.allow_deploy_private_lb]) : k if v]
+    service_lb_subnet_ids = var.allow_deploy_public_lb ? (var.use_existing_vcn ? [var.public_lb_subnet] : [oci_core_subnet.oke_public_lb_subnet[0].id]) : []
 
     add_ons {
       is_kubernetes_dashboard_enabled = var.cluster_options_add_ons_is_kubernetes_dashboard_enabled

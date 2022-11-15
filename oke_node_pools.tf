@@ -10,9 +10,9 @@ locals {
       subnet                  = var.use_existing_vcn ? var.np1_subnet : oci_core_subnet.oke_nodepool_subnet[0].id
       ha                      = var.np1_ha
       ad                      = var.np1_availability_domain
-      node_count              = var.np1_node_count
+      node_count              = var.np1_enable_autoscaler ? var.np1_autoscaler_min_nodes : var.np1_node_count
       node_shape              = var.np1_node_shape
-      image_id                = var.np1_image_id
+      image_id                = local.np1_oke_image_id
       boot_volume_size_in_gbs = var.np1_boot_volume_size_in_gbs
       tags                    = var.np1_tags
       ocpus                   = var.np1_ocpus
@@ -22,9 +22,9 @@ locals {
       subnet                  = var.use_existing_vcn ? var.np2_subnet : var.np2_create_new_subnet ? oci_core_subnet.oke_nodepool_subnet[1].id : oci_core_subnet.oke_nodepool_subnet[0].id
       ha                      = var.np2_ha
       ad                      = var.np2_availability_domain
-      node_count              = var.np2_node_count
+      node_count              = var.np2_enable_autoscaler ? var.np2_autoscaler_min_nodes : var.np2_node_count
       node_shape              = var.np2_node_shape
-      image_id                = var.np2_image_id
+      image_id                = local.np2_oke_image_id
       boot_volume_size_in_gbs = var.np2_boot_volume_size_in_gbs
       tags                    = var.np2_tags
       ocpus                   = var.np2_ocpus
@@ -34,9 +34,9 @@ locals {
       subnet                  = var.use_existing_vcn ? var.np3_subnet : var.np3_create_new_subnet ? oci_core_subnet.oke_nodepool_subnet[length(oci_core_subnet.oke_nodepool_subnet) - 1].id : oci_core_subnet.oke_nodepool_subnet[0].id
       ha                      = var.np3_ha
       ad                      = var.np3_availability_domain
-      node_count              = var.np3_node_count
+      node_count              = var.np3_enable_autoscaler ? var.np3_autoscaler_min_nodes : var.np3_node_count
       node_shape              = var.np3_node_shape
-      image_id                = var.np3_image_id
+      image_id                = local.np3_oke_image_id
       boot_volume_size_in_gbs = var.np3_boot_volume_size_in_gbs
       tags                    = var.np3_tags
       ocpus                   = var.np3_ocpus
@@ -73,7 +73,7 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
 
   node_config_details {
     dynamic "placement_configs" {
-      for_each = [for ad in local.node_pools[count.index]["ha"] ? local.shape_ad_availability[local.node_pools[count.index]["node_shape"]] : [local.node_pools[count.index]["ad"]] : ad ]
+      for_each = [for ad in local.node_pools[count.index]["ha"] ? local.shape_ad_availability[local.node_pools[count.index]["node_shape"]] : [local.node_pools[count.index]["ad"]] : ad]
       content {
         subnet_id           = local.node_pools[count.index]["subnet"]
         availability_domain = placement_configs.value

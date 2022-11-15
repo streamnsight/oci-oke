@@ -39,7 +39,7 @@ variable "cluster_name" {
 
 variable "kubernetes_version" {
   default = ""
-  # default to latest version if null "v1.22.5"
+  # default to latest version if null
 }
 
 variable "node_pool_count" {
@@ -74,8 +74,28 @@ variable "np1_node_count" {
   default = 3
 }
 
+variable "np1_enable_autoscaler" {
+  default = true
+}
+
+variable "np1_autoscaler_min_nodes" {
+  default = 1
+}
+
+variable "np1_autoscaler_max_nodes" {
+  default = 6
+}
+
 variable "np1_node_shape" {
   default = "VM.Standard.E3.Flex"
+}
+
+variable "np1_ocpus" {
+  default = 1
+}
+
+variable "np1_memory_gb" {
+  default = 4
 }
 
 variable "np1_image_id" {
@@ -88,14 +108,6 @@ variable "np1_boot_volume_size_in_gbs" {
 
 variable "np1_tags" {
   default = null
-}
-
-variable "np1_ocpus" {
-  default = 1
-}
-
-variable "np1_memory_gb" {
-  default = 4
 }
 
 variable "np2_subnet" {
@@ -118,8 +130,28 @@ variable "np2_node_count" {
   default = 0
 }
 
+variable "np2_enable_autoscaler" {
+  default = true
+}
+
+variable "np2_autoscaler_min_nodes" {
+  default = 0
+}
+
+variable "np2_autoscaler_max_nodes" {
+  default = 6
+}
+
 variable "np2_node_shape" {
   default = null
+}
+
+variable "np2_ocpus" {
+  default = 1
+}
+
+variable "np2_memory_gb" {
+  default = 4
 }
 
 variable "np2_image_id" {
@@ -132,14 +164,6 @@ variable "np2_boot_volume_size_in_gbs" {
 
 variable "np2_tags" {
   default = null
-}
-
-variable "np2_ocpus" {
-  default = 1
-}
-
-variable "np2_memory_gb" {
-  default = 4
 }
 
 variable "np3_subnet" {
@@ -162,8 +186,28 @@ variable "np3_node_count" {
   default = 0
 }
 
+variable "np3_enable_autoscaler" {
+  default = true
+}
+
+variable "np3_autoscaler_min_nodes" {
+  default = 0
+}
+
+variable "np3_autoscaler_max_nodes" {
+  default = 6
+}
+
 variable "np3_node_shape" {
   default = null
+}
+
+variable "np3_ocpus" {
+  default = 1
+}
+
+variable "np3_memory_gb" {
+  default = 4
 }
 
 variable "np3_image_id" {
@@ -178,24 +222,8 @@ variable "np3_tags" {
   default = null
 }
 
-variable "np3_ocpus" {
-  default = 1
-}
-
-variable "np3_memory_gb" {
-  default = 4
-}
-
-variable "allow_deploy_private_lb" {
-  default = false
-}
-
-variable "private_lb_subnet" {
-  default = null
-}
-
 variable "allow_deploy_public_lb" {
-  default = false
+  default = true
 }
 
 variable "public_lb_subnet" {

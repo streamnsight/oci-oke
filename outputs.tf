@@ -32,21 +32,21 @@
 #   value = data.oci_core_services.AllOCIServices
 # }
 
-output "k8s" {
-  value = reverse(data.oci_containerengine_cluster_option.cluster_options.kubernetes_versions)[0]
-}
+# output "k8s" {
+#   value = reverse(data.oci_containerengine_cluster_option.cluster_options.kubernetes_versions)[0]
+# }
 
 # output "node-options" {
 #   value = data.oci_containerengine_node_pool_option.oci_oke_node_pool_option
 # }
 
-output "images" {
-  value = var.np1_image_id == null ? {
-    gpu = local.gpu
-    arm = local.arm
-    x86 = local.x86
-  } : {}
-}
+# output "images" {
+#   value = var.np1_image_id == null ? {
+#     gpu = local.gpu
+#     arm = local.arm
+#     x86 = local.x86
+#   } : {}
+# }
 
 # # output test_image {
 # #   value = data.oci_core_image_shapes.test_image_shapes
@@ -55,3 +55,7 @@ output "images" {
 # output "test_cidr" {
 #   value = cidrsubnets("10.0.0.0/16", 15, 4, 4, 4)
 # }
+
+output "access_command" {
+  value = "oci ce cluster create-kubeconfig --cluster-id ${oci_containerengine_cluster.oci_oke_cluster.id} --file $HOME/.kube/config --region ${var.region} --token-version 2.0.0  --kube-endpoint ${var.is_endpoint_public ? "PUBLIC_ENDPOINT" : "PRIVATE_ENDPOINT"}"
+}
